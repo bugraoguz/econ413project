@@ -1,0 +1,409 @@
+---
+title: "Renewable Energy"
+author: Buğra Oğuz, Yağız Efe Özmeriç & Dilşad Koçak
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    vertical_layout: fill
+    theme:
+      version: 4 
+      primary: "#89f32c"
+      navbar-bg: "#16297b"
+      base_font: 
+        google: Prompt
+      heading_font:
+        google: Sen
+      code_font:
+        google: 
+          family: JetBrains Mono
+          local: false
+runtime: shiny
+---
+
+**Green Energy, Growing Economies**
+
+[The data used here can be found online](https://github.com/bugraoguz/econ413project.git)
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(ggplot2)
+library(data.table)
+library(sf)
+library(rnaturalearth)
+library(leaflet)
+library(dplyr)
+library(knitr)
+library(readr)
+library(gganimate)
+library(readxl)
+library(gifski)
+library(shiny)
+library(rvest)
+library(tidytext)
+library(stargazer)
+library(tseries)
+library(forecast)
+
+```
+
+# Page 1
+
+## Column
+
+### Introduction
+
+Turkey must run a current account deficit to sustain its economic growth. According to Dani Rodrik's work, Turkey, as a middle-income country, needs to maintain a current account deficit of approximately 6% to remain within this income group. The primary reason for this is Turkey's high dependence on imported intermediate goods in industrial production, with energy being the most significant among them. As noted in the 2023 report by Alparslan Bayraktar, the Minister of Energy and Natural Resources, Turkey's energy dependency was recorded at 67.8%.
+
+This study focuses on reducing Turkey's energy dependency and achieving sustainable growth through investments in renewable energy. It includes forecasts on Turkey's renewable energy investments, visualizations of how these investments may impact the current account balance, and analyses of their potential effects on the sustainability of Turkey's growth.
+
+Let's first examine the shares of energy used in Turkey over the years.
+
+## Column {data-width="650"}
+
+### **Renewable Energy Invetment by Year**
+
+```{r chunk1}
+url <- "https://github.com/yagizozmeric/econ413project/raw/refs/heads/main/yenilenebilir_enerji_yatırım.csv"
+renewable_investments <- read.csv(url)
+ggplot(renewable_investments, aes(x = as.numeric(Year), y = RenewableInvestment)) +
+  geom_line(color = "blue", size = 1.2) +  
+  geom_point(color = "red", size = 3) +   
+  labs(
+    x = "Year",
+    y = "Renewable Energy Investment (MWe)"
+  ) +
+  theme_minimal() +
+  scale_x_continuous(
+    breaks = seq(
+      min(as.numeric(renewable_investments$Year)),
+  max(as.numeric(renewable_investments$Year)),
+      by = 1
+    )
+  ) +
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold"),
+    axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+## Column
+
+### **Total Investment on Renewable Energy Production Capacity by Cities in Türkiye (2015-2023)**
+
+```{r second-plot, echo = FALSE}
+
+
+url <- "https://github.com/yagizozmeric/econ413project/raw/refs/heads/main/2015.xlsx"
+temp_file <- tempfile(fileext = ".xlsx")
+download.file(url, destfile = temp_file, mode = "wb")
+energy_2015 <- read_excel(temp_file)
+
+url <- "https://github.com/yagizozmeric/econ413project/raw/refs/heads/main/2016.xlsx"
+temp_file <- tempfile(fileext = ".xlsx")
+download.file(url, destfile = temp_file, mode = "wb")
+energy_2016 <- read_excel(temp_file)
+
+url <- "https://github.com/yagizozmeric/econ413project/raw/refs/heads/main/2017.xlsx"
+temp_file <- tempfile(fileext = ".xlsx")
+download.file(url, destfile = temp_file, mode = "wb")
+energy_2017 <- read_excel(temp_file)
+
+url <- "https://github.com/yagizozmeric/econ413project/raw/refs/heads/main/2018.xlsx"
+temp_file <- tempfile(fileext = ".xlsx")
+download.file(url, destfile = temp_file, mode = "wb")
+energy_2018 <- read_excel(temp_file)
+
+url <- "https://github.com/yagizozmeric/econ413project/raw/refs/heads/main/2019.xlsx"
+temp_file <- tempfile(fileext = ".xlsx")
+download.file(url, destfile = temp_file, mode = "wb")
+energy_2019 <- read_excel(temp_file)
+
+url <- "https://github.com/yagizozmeric/econ413project/raw/refs/heads/main/2020.xlsx"
+temp_file <- tempfile(fileext = ".xlsx")
+download.file(url, destfile = temp_file, mode = "wb")
+energy_2020 <- read_excel(temp_file)
+
+url <- "https://github.com/yagizozmeric/econ413project/raw/refs/heads/main/2021.xlsx"
+temp_file <- tempfile(fileext = ".xlsx")
+download.file(url, destfile = temp_file, mode = "wb")
+energy_2021 <- read_excel(temp_file)
+
+url <- "https://github.com/yagizozmeric/econ413project/raw/refs/heads/main/2022.xlsx"
+temp_file <- tempfile(fileext = ".xlsx")
+download.file(url, destfile = temp_file, mode = "wb")
+energy_2022 <- read_excel(temp_file)
+
+url <- "https://github.com/yagizozmeric/econ413project/raw/refs/heads/main/2023.xlsx"
+temp_file <- tempfile(fileext = ".xlsx")
+download.file(url, destfile = temp_file, mode = "wb")
+energy_2023 <- read_excel(temp_file)
+
+turkey_map <- ne_states(country = "Turkey", returnclass = "sf")
+
+energy_files <- list(
+  "2015" = energy_2015,
+  "2016" = energy_2016,
+  "2017" = energy_2017,
+  "2018" = energy_2018,
+  "2019" = energy_2019,
+  "2020" = energy_2020,
+  "2021" = energy_2021,
+  "2022" = energy_2022,
+  "2023" = energy_2023
+)
+
+all_data <- rbindlist(lapply(names(energy_files), function(year) {
+  data <- setDT(energy_files[[year]])  
+  colnames(data) <- c("Sira", "Lisans", "LisansNo", "SirketAdi", "SantralAdi", "il", 
+                      "YakitCinsi", "UniteGucuMwe", "UniteSayisi", "ilaveKuruluGuc", 
+                      "KabulTarihi")  
+  data[, Year := as.numeric(year)]  
+  return(data)
+}), use.names = TRUE, fill = TRUE)
+
+all_data[, il := toupper(il)]
+aggregated_data <- all_data[, .(
+  TotalInvestment = sum(as.numeric(ilaveKuruluGuc), na.rm = TRUE)
+), by = .(il)]
+turkey_map$admin_name <- toupper(turkey_map$name)
+final_data <- merge(turkey_map, aggregated_data, by.x = "admin_name", by.y = "il", all.x = TRUE)
+leaflet(final_data) %>%
+  addTiles() %>%
+  addPolygons(
+    fillColor = ~colorNumeric("YlGnBu", TotalInvestment)(TotalInvestment),  
+    weight = 1,
+    color = "white",  
+    fillOpacity = 0.7,  
+    popup = ~paste(
+      "<b>City:</b>", admin_name, "<br>",
+      "<b>Total Investment (MWe):</b>", TotalInvestment
+    )
+  ) %>%
+  addLegend(
+    pal = colorNumeric("YlGnBu", final_data$TotalInvestment),  
+    values = final_data$TotalInvestment,
+    title = "Investment (MWe)",  
+    position = "bottomright")
+```
+
+# Page 2
+
+## Column 1
+
+### 
+
+```{r}
+ui <- fluidPage(
+  titlePanel("Source Change on Electricity Production Through Years"),
+  sidebarLayout(
+    sidebarPanel(
+      sliderInput("selected_year", 
+                  "Select Year:", 
+                  min = as.integer(2010), 
+                  max = as.integer(2020), 
+                  value = as.integer(2015), 
+                  step = as.integer(1),
+                  animate = TRUE) 
+    ),
+    mainPanel(
+      plotOutput("energy_plot")
+    )
+  )
+)
+
+server <- function(input, output) {
+
+  url <- "https://github.com/yagizozmeric/econ413project/raw/refs/heads/main/enegy_shares.csv"
+  energy_data <- read_csv(url)
+  setDT(energy_data)
+
+  output$energy_plot <- renderPlot({
+    selected_year <- as.integer(input$selected_year)
+    filtered_data <- energy_data[Year == selected_year]
+    ggplot(filtered_data, aes(x = `Energy Type`, y = Percentage, fill = `Energy Type`)) +
+      geom_bar(stat = "identity") +
+      labs(title = "Source Distribution on Electricity Production Through Years",
+           subtitle = paste("Year:", selected_year),
+           x = "Energy Type", 
+           y = "Percentages") +
+      theme_bw() +
+      scale_y_continuous(breaks = seq(0, 100, by = 20))
+  })
+}
+shinyApp(ui = ui, server = server)
+
+```
+
+## Column 2
+
+You can view the changes in the share of energy production sources over the years in the chart on the left. It is evident that with the increase in renewable energy investments in recent years, its share in total production has grown significantly. This distribution of shares is crucial for reducing Turkey's energy dependency.
+
+# Page 3
+
+## Column 2 {.tabset .tabset-fade}
+
+### Latest News
+
+```{r}
+
+source_url <- "https://www.trthaber.com/etiket/yenilenebilir-enerji/sayfa-3/"
+
+
+web_page <- read_html(source_url)
+
+news_title <- web_page %>%
+  html_nodes(".site-url") %>%
+  html_text(trim = TRUE) %>%
+  .[10]  
+news_link <- web_page %>%
+  html_nodes(".site-url") %>%
+  html_attr("href") %>%
+  .[10]
+
+full_news_link <- paste0(news_link)
+cat(sprintf("## [%s](%s)\n", news_title, full_news_link))
+```
+
+You can access the latest news on renewable energy from TRT Haber through this link.
+
+### Word Frequency
+
+```{r}
+all_news <- data.frame()
+num_pages <- 50
+for (i in 1:num_pages) {
+  url <- paste0("https://www.trthaber.com/etiket/yenilenebilir-enerji/sayfa-", i, "/")
+  page <- tryCatch(read_html(url), error = function(e) NULL)
+  if (!is.null(page)) {
+    headlines <- page %>%
+      html_nodes(".site-url") %>%  
+      html_text(trim = TRUE)
+    links <- page %>%
+      html_nodes(".site-url") %>% 
+      html_attr("href")
+    if (length(headlines) > 0 & length(links) > 0 & length(headlines) == length(links)) {
+      full_links <- paste0("https://www.trthaber.com", links)
+      news_data <- data.frame(Title = headlines, Link = full_links)
+      all_news <- bind_rows(all_news, news_data)
+    }
+  }
+}
+
+
+url <- "https://github.com/yagizozmeric/econ413project/raw/refs/heads/main/YenilenebilirEnerji.csv"
+all_news <- read.csv(url)
+tokenized_words <- all_news %>%
+  unnest_tokens(word, Title) %>%  
+  count(word, sort = TRUE)        
+keywords <- c("güneş","rüzgar","hidroelektrik","dalga")
+keyword_freq <- tokenized_words %>%
+  filter(word %in% keywords)
+setDT(keyword_freq)
+ggplot(keyword_freq, aes(x = reorder(word, n), y = n, fill = word)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +  
+  labs(title = "Word Frequency", x = "Words", y = "Frequency") +
+  theme_minimal() + theme(legend.position = "none")
+```
+
+# Page 4
+
+```{r}
+regression_data <- read.csv("https://github.com/yagizozmeric/econ413project/raw/refs/heads/main/regression_data.csv")
+reg_data <- regression_data[, c("Current.Account", "Gas_Production", "Hydro_Production", 
+                                "Coal_Production", "Liquid_Production", "Renewable_Production")]
+model1 <- lm(Current.Account ~ Gas_Production + Hydro_Production + 
+              Coal_Production + Liquid_Production + Renewable_Production, 
+            data = reg_data)
+model2 <- lm(Current.Account ~ Gas_Production + Hydro_Production + Liquid_Production 
+             + Renewable_Production, 
+             data = reg_data)
+model3 <- lm(Current.Account ~ Gas_Production + Hydro_Production  
+             + Renewable_Production, 
+             data = reg_data)
+model4 <- lm(Current.Account ~ Renewable_Production, 
+             data = reg_data)
+model5 <- lm(Current.Account ~ Gas_Production + Hydro_Production + 
+               Coal_Production + Renewable_Production, 
+             data = reg_data)
+f <- stargazer(model1,model2,model3,model4, model5, type = "text")
+f
+```
+
+# Page 5
+
+## Column 1 {.tabset .tabset-fade}
+
+### Forecast 1
+
+```{r fifth-plot, echo = FALSE}
+library(shiny)
+library(forecast)
+library(tidyverse)
+library(CBRT)
+data <- getDataSeries("TP.DK.USD.A", "Nqd7U0zsnx", startDate = "01-01-2010", endDate = "01-12-2020")  
+data$time <- as.Date(data$time) 
+usd_ts <- ts(data$TP.DK.USD.A, start = c(2010, 1), frequency = 365)  
+ui <- fluidPage(
+  titlePanel("ARIMA Model Estimation: USD/TRY"),
+  
+  sidebarLayout(
+    sidebarPanel(
+      sliderInput("order_p", "AR (p):", min = 0, max = 5, value = 1),
+      sliderInput("order_d", "I (d):", min = 0, max = 2, value = 1),
+      sliderInput("order_q", "MA (q):", min = 0, max = 5, value = 1),
+      numericInput("forecast_h", "Estimation length (day):", value = 30, min = 1),
+      actionButton("update", "Show Forecast")
+    ),
+    
+    mainPanel(
+      plotOutput("arimaPlot"),
+      tableOutput("arimaTable")
+    )
+  )
+)
+
+server <- function(input, output) {
+  forecast_values <- eventReactive(input$update, {
+    fit <- Arima(usd_ts, order = c(input$order_p, input$order_d, input$order_q))
+    forecast(fit, h = input$forecast_h)
+  })
+
+  output$arimaPlot <- renderPlot({
+    plot(forecast_values(), main = "USD/TRY ARIMA Estimation")
+  })
+  
+  output$arimaTable <- renderTable({
+    as.data.frame(forecast_values())
+  })
+}
+
+shinyApp(ui = ui, server = server)
+```
+
+### Forecast 2
+
+Renewable Energy Production Forecast
+
+```{r}
+regression_data$Date <- as.Date(regression_data$Date)
+renew_production_ts <- ts(regression_data$Renewable_Production, 
+                         start = c(2015, 1),  
+                         frequency = 12)  
+arima_model_renewable <- auto.arima(renew_production_ts)
+forecast_values_renewable <- forecast(arima_model_renewable, h = 48)
+plot(forecast_values_renewable)
+```
+
+### Forecast 3
+
+Current Account Forecast
+
+```{r}
+regression_data$Date <- as.Date(regression_data$Date)
+current_account_ts <- ts(regression_data$Current.Account, 
+                         start = c(2015, 1),  
+                         frequency = 12)  
+arima_model <- auto.arima(current_account_ts)
+forecast_values <- forecast(arima_model, h = 48)
+plot(forecast_values)
+```
